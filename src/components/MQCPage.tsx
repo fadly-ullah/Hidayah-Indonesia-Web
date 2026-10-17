@@ -23,18 +23,15 @@ export const MQCPage: React.FC<MQCPageProps> = ({ onAddRegistration }) => {
   const [submitted, setSubmitted] = useState(false);
   const [lastTicket, setLastTicket] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.fullName || !formData.whatsapp) {
-      alert('Mohon isi Nama Lengkap dan Nomor WhatsApp terlebih dahulu.');
-      return;
-    }
+ 
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
 
-    onAddRegistration(formData);
-    const ticketId = 'MQC-' + Math.floor(100000 + Math.random() * 900000);
-    setLastTicket(ticketId);
-    setSubmitted(true);
-  };
+  alert(
+    'Pendaftaran online MQC sedang dalam pembaruan. ' +
+    'Silakan hubungi admin MQC melalui kontak resmi Hidayah Indonesia.'
+  );
+};
 
   return (
     <div className="py-12 bg-slate-50 text-slate-900 min-h-screen">

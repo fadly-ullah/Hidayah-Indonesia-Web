@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { initialProfile, initialUnits, initialArticles, initialActivities, initialTestimonials } from './data/initialData';
-import { FoundationProfile, UnitDakwah, Article, Activity, Testimonial, MQCRegistration } from './types';
+import React, { useEffect, useState } from 'react';
+import { initialProfile, initialUnits } from './data/initialData';
+import type { FoundationProfile, UnitDakwah, Article, Activity, Testimonial } from './types';
+import { publicCms } from './services/cmsApi';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ProfileSection } from './components/ProfileSection';
@@ -11,105 +12,81 @@ import { ActivitiesSection } from './components/ActivitiesSection';
 import { TestimonialsSection } from './components/TestimonialsSection';
 import { DonationBanner } from './components/DonationBanner';
 import { Footer } from './components/Footer';
-import { AdminModal } from './components/AdminModal';
 
+/**
+ * Frontend only reads PUBLIC CMS endpoints. Editing takes place in the
+ * authenticated Rumahweb dashboard instead of the legacy localStorage editor.
+ * Existing layouts and CSS classes are preserved.
+ */
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
-  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+  const [profile, setProfile] = useState<FoundationProfile>(initialProfile);
+  const [units, setUnits] = useState<UnitDakwah[]>(initialUnits);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
-  // Persistent state with localStorage
-  const [profile, setProfile] = useState<FoundationProfile>(() => {
-    const saved = localStorage.getItem('hi_profile');
-    return saved ? JSON.parse(saved) : initialProfile;
-  });
+  useEffect(() => {
+    const controller = new AbortController();
+    let disposed = false;
 
-  const [units, setUnits] = useState<UnitDakwah[]>(() => {
-    const saved = localStorage.getItem('hi_units');
-    return saved ? JSON.parse(saved) : initialUnits;
-  });
+    const refresh = async () => {
+      const [nextProfile, nextUnits, nextArticles, nextActivities, nextTestimonials] =
+        await Promise.allSettled([
+          publicCms.profile(controller.signal),
+          publicCms.units(controller.signal),
+          publicCms.articles(controller.signal),
+          publicCms.activities(controller.signal),
+          publicCms.testimonials(controller.signal),
+        ]);
+      if (disposed) return;
 
-  const [articles, setArticles] = useState<Article[]>(() => {
-    const saved = localStorage.getItem('hi_articles');
-    return saved ? JSON.parse(saved) : initialArticles;
-  });
-
-  const [activities, setActivities] = useState<Activity[]>(() => {
-    const saved = localStorage.getItem('hi_activities');
-    return saved ? JSON.parse(saved) : initialActivities;
-  });
-
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
-    const saved = localStorage.getItem('hi_testimonials');
-    return saved ? JSON.parse(saved) : initialTestimonials;
-  });
-
-  const [registrations, setRegistrations] = useState<MQCRegistration[]>(() => {
-    const saved = localStorage.getItem('hi_registrations');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'reg-1',
-        fullName: 'Ahmad Fauzan',
-        whatsapp: '081234567890',
-        gender: 'Ikhwan',
-        classType: 'Kelas Reguler',
-        level: 'Level 2 (Tahsin)',
-        mode: 'Offline (Jatiasih, Bekasi)',
-        dayPreference: 'Senin & Rabu',
-        timePreference: '16.00',
-        infaqAmount: 100000,
-        isFirstFive: true,
-        createdAt: '15 Okt 2026',
-        status: 'Dikonfirmasi'
+      if (nextProfile.status === 'fulfilled' && nextProfile.value) {
+        // Preserve required frontend fields if the CMS profile has not been filled completely.
+        setProfile({
+          ...initialProfile,
+          ...nextProfile.value,
+          contact: { ...initialProfile.contact, ...(nextProfile.value.contact || {}) },
+          mission: Array.isArray(nextProfile.value.mission) ? nextProfile.value.mission : [],
+          legalities: Array.isArray(nextProfile.value.legalities) ? nextProfile.value.legalities : [],
+          management: Array.isArray(nextProfile.value.management) ? nextProfile.value.management : [],
+        });
       }
-    ];
-  });
+      if (nextUnits.status === 'fulfilled') {
+        // After a successful API response, CMS is the source of truth, including empty lists.
+        setUnits(nextUnits.value);
+      }
+      if (nextArticles.status === 'fulfilled') setArticles(nextArticles.value);
+      if (nextActivities.status === 'fulfilled') setActivities(nextActivities.value);
+      if (nextTestimonials.status === 'fulfilled') setTestimonials(nextTestimonials.value);
 
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    localStorage.setItem('hi_profile', JSON.stringify(profile));
-  }, [profile]);
-
-  useEffect(() => {
-    localStorage.setItem('hi_units', JSON.stringify(units));
-  }, [units]);
-
-  useEffect(() => {
-    localStorage.setItem('hi_articles', JSON.stringify(articles));
-  }, [articles]);
-
-  useEffect(() => {
-    localStorage.setItem('hi_activities', JSON.stringify(activities));
-  }, [activities]);
-
-  useEffect(() => {
-    localStorage.setItem('hi_testimonials', JSON.stringify(testimonials));
-  }, [testimonials]);
-
-  useEffect(() => {
-    localStorage.setItem('hi_registrations', JSON.stringify(registrations));
-  }, [registrations]);
-
-  const handleAddRegistration = (regData: Omit<MQCRegistration, 'id' | 'createdAt' | 'status'>) => {
-    const newReg: MQCRegistration = {
-      ...regData,
-      id: 'reg-' + Date.now(),
-      createdAt: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-      status: 'Pending'
+      for (const outcome of [nextProfile, nextUnits, nextArticles, nextActivities, nextTestimonials]) {
+        if (outcome.status === 'rejected' && !controller.signal.aborted) {
+          console.warn('CMS sementara tidak dapat dibaca, menggunakan data cadangan:', outcome.reason);
+        }
+      }
     };
-    setRegistrations([newReg, ...registrations]);
+
+    void refresh();
+    // An already-open page refreshes its public content periodically.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 120000);
+    return () => {
+      disposed = true;
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const openCmsAdmin = () => {
+    window.location.assign('https://api.hidayahindonesia.id/cms-admin.html');
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      
-      {/* Header / Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        profile={profile}
-      />
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} profile={profile} />
 
-      {/* Main Content Area */}
       <main className="flex-grow">
         {activeTab === 'home' && (
           <>
@@ -122,56 +99,23 @@ export default function App() {
             <TestimonialsSection testimonials={testimonials} />
           </>
         )}
-
-        {activeTab === 'profile' && (
-          <ProfileSection profile={profile} />
-        )}
-
-        {activeTab === 'units' && (
-          <UnitsSection units={units} setActiveTab={setActiveTab} />
-        )}
-
+        {activeTab === 'profile' && <ProfileSection profile={profile} />}
+        {activeTab === 'units' && <UnitsSection units={units} setActiveTab={setActiveTab} />}
         {activeTab === 'mqc' && (
-          <MQCPage onAddRegistration={handleAddRegistration} />
+          // Form pendaftaran lama belum terhubung ke backend; pengiriman lokal dinonaktifkan
+          // oleh patch MQCPage yang WAJIB dipasang bersama file ini.
+          <MQCPage onAddRegistration={() => {}} />
         )}
-
         {activeTab === 'articles-activities' && (
           <>
             <ArticlesSection articles={articles} />
             <ActivitiesSection activities={activities} />
           </>
         )}
-
-        {activeTab === 'testimonials' && (
-          <TestimonialsSection testimonials={testimonials} />
-        )}
+        {activeTab === 'testimonials' && <TestimonialsSection testimonials={testimonials} />}
       </main>
 
-      {/* Footer */}
-      <Footer
-        setActiveTab={setActiveTab}
-        onOpenAdmin={() => setIsAdminOpen(true)}
-        profile={profile}
-      />
-
-      {/* Admin Panel Modal */}
-      <AdminModal
-        isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-        profile={profile}
-        setProfile={setProfile}
-        units={units}
-        setUnits={setUnits}
-        articles={articles}
-        setArticles={setArticles}
-        activities={activities}
-        setActivities={setActivities}
-        testimonials={testimonials}
-        setTestimonials={setTestimonials}
-        registrations={registrations}
-        setRegistrations={setRegistrations}
-      />
-
+      <Footer setActiveTab={setActiveTab} onOpenAdmin={openCmsAdmin} profile={profile} />
     </div>
   );
 }
