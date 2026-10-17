@@ -33,12 +33,6 @@ const handleSubmit = (e: React.FormEvent) => {
   );
 };
 
-    onAddRegistration(formData);
-const ticketId = 'MQC-' + Math.floor(100000 + Math.random() * 900000);
-setLastTicket(ticketId);
-setSubmitted(true);
-};
-
   return (
     <div className="py-12 bg-slate-50 text-slate-900 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
