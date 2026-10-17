@@ -1,0 +1,6 @@
+{
+  "name": "Hidayah Indonesia",
+  "description": "Yayasan Hidayah Indonesia - Pusat Pendidikan Al-Quran, Sosial, Dakwah, dan Bisnis Umat",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
