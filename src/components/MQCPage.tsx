@@ -4,6 +4,7 @@ import type { MQCRegistrationInput } from '../services/mqcRegistration';
 import {
   getMQCRegistrationStatus,
   submitMQCRegistration,
+  verifyMQCPrivateTestKey,
 } from '../services/mqcRegistration';
 import {
   BookOpen, MapPin, Video, Users, CheckCircle2, Award, Sparkles, Send,
@@ -37,6 +38,11 @@ const selectClass =
   'w-full px-3 py-3 rounded-xl bg-slate-900 border border-blue-900 text-white focus:outline-none focus:border-blue-500 text-xs';
 const labelClass = 'block text-xs font-semibold text-blue-200 mb-1';
 
+// Cabang uji privat saja. Tidak boleh di-merge ke main.
+// Alias Git Vercel khusus branch ini tetap sama untuk setiap deployment.
+const IS_PRIVATE_MQC_PREVIEW = typeof window !== 'undefined' &&
+  window.location.hostname === 'hidayah-indonesia-web-41oh-git-uji-mqc-privat-dly1.vercel.app';
+
 export const MQCPage: React.FC<MQCPageProps> = () => {
   const [formData, setFormData] = useState<RegistrationFields>({ ...INITIAL_FORM });
   const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
@@ -46,6 +52,30 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [lastTicket, setLastTicket] = useState<string | null>(null);
+  const [privateKey, setPrivateKey] = useState('');
+  const [privateVerified, setPrivateVerified] = useState(false);
+  const [privateMessage, setPrivateMessage] = useState('');
+  const [privateChecking, setPrivateChecking] = useState(false);
+  const registrationEnabled = registrationOpen === true || (IS_PRIVATE_MQC_PREVIEW && privateVerified);
+
+  const verifyPrivateKey = async () => {
+    setPrivateVerified(false);
+    if (!IS_PRIVATE_MQC_PREVIEW || !/^[0-9a-f]{64}$/.test(privateKey.trim())) {
+      setPrivateMessage('Masukkan kunci asli 64 karakter (bukan hash).');
+      return;
+    }
+    setPrivateChecking(true);
+    setPrivateMessage('Memeriksa kunci pengujian...');
+    try {
+      await verifyMQCPrivateTestKey(privateKey.trim());
+      setPrivateVerified(true);
+      setPrivateMessage('Akses uji aktif. Server tetap menutup pendaftaran publik.');
+    } catch (error) {
+      setPrivateMessage(error instanceof Error ? error.message : 'Akses uji tidak tersedia.');
+    } finally {
+      setPrivateChecking(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -69,13 +99,20 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
     event.preventDefault();
     setFormError('');
     if (isSubmitting) return;
-    if (registrationOpen !== true) {
+    if (!registrationEnabled) {
       setFormError('Pendaftaran MQC belum dibuka.');
       return;
     }
     if (!consent) {
       setFormError('Mohon setujui penggunaan data untuk administrasi pendaftaran.');
       return;
+    }
+    if (IS_PRIVATE_MQC_PREVIEW && privateVerified) {
+      if (formData.fullName.trim() !== 'TEST REACT MQC' || formData.whatsapp.trim() !== '6280000000001') {
+        setFormError('Mode uji hanya untuk nama TEST REACT MQC dan nomor dummy 6280000000001.');
+        return;
+      }
+      if (!window.confirm('Kirim tepat SATU data dummy menggunakan formulir React asli?')) return;
     }
     setIsSubmitting(true);
     try {
@@ -85,10 +122,14 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
         whatsapp: formData.whatsapp.trim(),
         consent: true,
         website: '',
-      });
+      }, undefined, (IS_PRIVATE_MQC_PREVIEW && privateVerified) ? privateKey.trim() : undefined);
       // Nomor pendaftaran berasal dari database/API Rumahweb, bukan Math.random().
       setLastTicket(receipt.registrationCode);
       setSubmitted(true);
+      if (IS_PRIVATE_MQC_PREVIEW) {
+        setPrivateKey('');
+        setPrivateVerified(false);
+      }
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : 'Pendaftaran belum berhasil. Silakan coba lagi.'
@@ -249,6 +290,27 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                 ⭐ <strong>Spesial Pendaftar Pertama:</strong> Free Buku Tajwid Ringkas + Free Biaya Pendaftaran (Rp 0 dari normal Rp 50.000). Cukup bayar infaq bulanan pilihan Anda! <span className="block mt-1">Ketersediaan promo dikonfirmasi admin.</span>
               </div>
 
+              {IS_PRIVATE_MQC_PREVIEW && !submitted && (
+                <section className="mb-6 rounded-xl border border-amber-500/50 bg-amber-950/40 p-4 space-y-3">
+                  <h4 className="font-bold text-amber-200">Uji Internal Formulir React MQC</h4>
+                  <p className="text-xs text-amber-100">Hanya untuk Preview. Jangan masukkan kunci ke GitHub, chat, atau screenshot.</p>
+                  <label htmlFor="mqc-private-key" className={labelClass}>Kunci asli pengujian</label>
+                  <input id="mqc-private-key" type="password" autoComplete="off" spellCheck={false}
+                    maxLength={64} value={privateKey}
+                    onChange={(event) => {
+                      setPrivateKey(event.target.value.trim());
+                      setPrivateVerified(false);
+                      setPrivateMessage('');
+                    }} className={inputClass} placeholder="64 karakter hex, bukan hash" />
+                  <button type="button" onClick={verifyPrivateKey}
+                    disabled={privateChecking || privateVerified || privateKey.length !== 64}
+                    className="w-full rounded-lg bg-blue-600 disabled:opacity-50 px-4 py-3 text-sm font-semibold text-white">
+                    {privateChecking ? 'Memeriksa kunci...' : 'Periksa Kunci Pengujian'}
+                  </button>
+                  <p role="status" className="text-xs text-amber-100">{privateMessage || 'Siapkan hanya satu data dummy.'}</p>
+                  <p className="text-xs text-slate-200">Setelah aktif, isi Nama: <strong>TEST REACT MQC</strong> dan WhatsApp: <strong>6280000000001</strong>, centang persetujuan, lalu tekan tombol asli di bawah.</p>
+                </section>
+              )}
               {submitted ? (
                 <div className="bg-emerald-950/80 border border-emerald-500/50 p-6 rounded-2xl text-center space-y-4 animate-fadeIn">
                   <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto text-2xl font-bold shadow-lg">✓</div>
@@ -341,9 +403,10 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                   </div>
 
                   <div aria-live="polite" className="text-xs">
-                    {registrationOpen === null && <p className="text-blue-200">Memeriksa layanan pendaftaran...</p>}
-                    {registrationOpen === false && !statusError && <p className="text-amber-300">Pendaftaran online MQC belum dibuka.</p>}
-                    {statusError && <p role="alert" className="text-amber-300">{statusError}</p>}
+                    {registrationOpen === null && !privateVerified && <p className="text-blue-200">Memeriksa layanan pendaftaran...</p>}
+                    {registrationOpen === false && !statusError && !privateVerified && <p className="text-amber-300">Pendaftaran online MQC belum dibuka.</p>}
+                    {statusError && !privateVerified && <p role="alert" className="text-amber-300">{statusError}</p>}
+                    {privateVerified && IS_PRIVATE_MQC_PREVIEW && <p className="text-emerald-300">Mode uji privat aktif. Pendaftaran publik tetap ditutup.</p>}
                     {formError && <p role="alert" className="text-red-300 mt-2">{formError}</p>}
                   </div>
                   <label className="flex items-start gap-3 text-xs text-slate-300">
@@ -351,7 +414,7 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                       className="mt-1 accent-amber-500" />
                     <span>Saya menyetujui pemrosesan nama, nomor WhatsApp, dan pilihan kelas untuk keperluan pendaftaran MQC serta komunikasi administrasi melalui WhatsApp.</span>
                   </label>
-                  <button type="submit" disabled={registrationOpen !== true || isSubmitting || !consent}
+                  <button type="submit" disabled={!registrationEnabled || isSubmitting || !consent}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-base shadow-lg transition-all flex items-center justify-center space-x-2 mt-2">
                     <Send className="w-4 h-4" />
                     <span>{isSubmitting ? 'Mengirim Pendaftaran...' : 'Kirim Pendaftaran Sekarang'}</span>
