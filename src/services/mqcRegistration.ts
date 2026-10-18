@@ -47,13 +47,38 @@ export async function getMQCRegistrationStatus(signal?: AbortSignal): Promise<bo
   return result.registration_open === true;
 }
 
+/**
+ * HANYA untuk uji end-to-end pada branch uji-mqc-privat.
+ * Backend PHP tetap mengharuskan Origin Preview dan kunci privat cocok.
+ */
+export async function verifyMQCPrivateTestKey(testKey: string): Promise<void> {
+  if (!/^[0-9a-f]{64}$/.test(testKey)) {
+    throw new Error('Kunci uji harus 64 karakter heksadesimal kecil.');
+  }
+  const response = await fetch(ENDPOINT, {
+    method: 'GET',
+    headers: { 'X-MQC-Test-Key': testKey },
+    credentials: 'omit',
+    cache: 'no-store',
+  });
+  const result = await parseJson(response);
+  if (!response.ok || result?.ok !== true || result?.database !== 'ready' ||
+      result?.registration_open !== true || result?.test_mode !== true) {
+    throw new Error('Akses uji belum aktif. Periksa Origin Preview dan kunci di Rumahweb.');
+  }
+}
+
 export async function submitMQCRegistration(
   values: MQCRegistrationInput,
   signal?: AbortSignal,
+  testKey?: string,
 ): Promise<MQCRegistrationReceipt> {
   const response = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(testKey ? { 'X-MQC-Test-Key': testKey } : {}),
+    },
     credentials: 'omit',
     cache: 'no-store',
     body: JSON.stringify(values),
