@@ -35,7 +35,7 @@ export const UnitsSection: React.FC<UnitsSectionProps> = ({ units, setActiveTab 
             ? `${units.length} Unit Dakwah Hidayah Indonesia`
             : 'Unit Dakwah Hidayah Indonesia'}
           </h2>
-          >
+          
           <p className="mt-4 text-base sm:text-lg text-slate-300">
             Pilar pengabdian dan pelayanan umat yang dikelola secara profesional di bidang pendidikan, tahfizh, sosial, dakwah media, majelis zikir, dan ekonomi syariah.
           </p>
