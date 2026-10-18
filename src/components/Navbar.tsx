@@ -39,9 +39,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, profile
               <span className="text-base sm:text-lg font-bold tracking-tight bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent">
                 {profile.logoText || "Hidayah Indonesia"}
               </span>
-              <p className="text-[10px] text-blue-300 font-medium tracking-wider uppercase">
-                {profile.logoSubtext || "Yayasan Resmi & Berbadan Hukum"}
-              </p>
+              {profile.logoSubtext && (
+            <p className="text-[10px] text-blue-300 font-medium tracking-wider uppercase">
+              {profile.logoSubtext}
+            </p>
+          )}
             </div>
           </div>
 
