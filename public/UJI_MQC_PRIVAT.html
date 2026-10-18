@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Uji Terbatas MQC | Hidayah Indonesia</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#152236;background:#f2f6fc}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh}
+    .wrap{max-width:690px;margin:38px auto;padding:0 18px 42px}
+    .hero{background:linear-gradient(125deg,#0b192c,#204c87);padding:28px;border-radius:20px;color:white}
+    .hero h1{margin:7px 0;font-size:1.65rem;line-height:1.3}
+    .hero p{margin:8px 0 0;color:#d9e6fd;line-height:1.5}
+    .pill{display:inline-block;color:#ffd57d;border:1px solid #ac8544;border-radius:999px;padding:4px 10px;font-size:.75rem;font-weight:bold;letter-spacing:.05em}
+    main{background:white;padding:26px;border:1px solid #dce6f5;border-radius:18px;margin-top:18px;box-shadow:0 10px 30px rgba(12,37,69,.04)}
+    h2{font-size:1.13rem;margin:0 0 16px}
+    .muted{font-size:.88rem;color:#64748b;line-height:1.5}
+    .warn{color:#8b4a06;background:#fff7e7;border:1px solid #f5d39c;padding:12px;border-radius:10px;line-height:1.5;font-size:.85rem}
+    .field{margin:15px 0}
+    label{display:block;font-weight:650;font-size:.88rem;margin-bottom:7px}
+    input,select{width:100%;background:#fff;border:1px solid #adc0dc;border-radius:10px;padding:12px 13px;font-size:1rem;outline-color:#225dd4;color:#1c3550}
+    input[readonly]{background:#f4f7fc}
+    button{border:0;border-radius:10px;padding:12px 15px;font-size:.95rem;font-weight:750;cursor:pointer;color:#fff;background:#245bda}
+    button:disabled{opacity:.46;cursor:not-allowed}
+    button.secondary{background:#e7edf7;color:#17345b}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:550px){.grid{grid-template-columns:1fr}main{padding:18px}}
+    .status{padding:13px;border-radius:10px;line-height:1.5;white-space:pre-wrap;word-break:break-word;border:1px solid #cbd5e1;background:#f8fafc;margin:14px 0;font-size:.9rem}
+    .status.ok{background:#ecfdf5;color:#166534;border-color:#9ee4bf}
+    .status.err{background:#fff2f2;color:#a32126;border-color:#ffb6b6}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+    .check{display:flex;align-items:flex-start;gap:9px;margin:18px 0}
+    .check input{width:auto;margin:3px 0 0}
+    .check label{font-weight:500;line-height:1.5;margin:0}
+    code{background:#eaf0f8;padding:2px 5px;border-radius:4px}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="pill">KHUSUS PENGUJIAN INTERNAL</div>
+    <h1>Uji Pendaftaran MQC</h1>
+    <p>Uji satu pendaftar dummy dari browser Vercel ke API Rumahweb → MySQL → CMS Admin. Pendaftaran umum tetap tertutup.</p>
+  </header>
+  <main>
+    <h2>1. Verifikasi akses pengujian</h2>
+    <p class="warn">Halaman ini hanya untuk Vercel Preview yang sudah diizinkan pada <code>mqc-register.php</code>. Jangan kirim kunci ke ChatGPT, GitHub, atau screenshot. Kunci hanya dikirim ke API resmi Hidayah Indonesia melalui HTTPS.</p>
+    <div class="field">
+      <label for="secret">Kunci asli pengujian (64 karakter)</label>
+      <input id="secret" type="password" maxlength="64" minlength="64" pattern="[0-9a-f]{64}" autocomplete="off" spellcheck="false" placeholder="Kunci asli, bukan SHA-256 hash" aria-describedby="help">
+      <p id="help" class="muted">Gunakan kunci asli yang hash-nya disimpan di <code>hidayah-private/mqc-test-key.sha256</code>.</p>
+    </div>
+    <div class="row">
+      <button type="button" id="check">Periksa kunci &amp; koneksi</button>
+      <button type="button" id="reveal" class="secondary">Lihat / sembunyikan kunci</button>
+    </div>
+    <div id="status" class="status" role="status" aria-live="polite">Belum diperiksa. Pendaftaran publik belum diaktifkan.</div>
+    <div id="testForm" class="hidden">
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:25px 0">
+      <h2>2. Kirim satu data dummy</h2>
+      <p class="muted">Data dummy di bawah tidak mewakili peserta sungguhan. Jangan menggunakan nama atau nomor WhatsApp milik orang lain.</p>
+      <form id="registration">
+        <div class="grid">
+          <div class="field"><label for="name">Nama lengkap</label><input id="name" value="TEST WEB MQC" readonly></div>
+          <div class="field"><label for="phone">WhatsApp dummy</label><input id="phone" value="6280000000000" readonly></div>
+          <div class="field"><label for="gender">Jenis kelamin</label><select id="gender"><option>Ikhwan</option><option>Akhwat</option></select></div>
+          <div class="field"><label for="classType">Jenis kelas</label><select id="classType"><option>Kelas Reguler</option><option>Kelas Privat</option></select></div>
+          <div class="field"><label for="level">Level</label><select id="level"><option>Level 1 (Pemula)</option><option>Level 2 (Tahsin)</option><option>Level 3 (Tahfizh)</option></select></div>
+          <div class="field"><label for="mode">Metode belajar</label><select id="mode"><option>Offline (Jatiasih, Bekasi)</option><option>Online (Zoom/Meet/WA)</option></select></div>
+          <div class="field"><label for="day">Hari belajar</label><select id="day"><option>Senin &amp; Rabu</option><option>Selasa &amp; Kamis</option><option>Senin &amp; Kamis</option><option>Selasa &amp; Rabu</option><option>Sabtu &amp; Ahad</option></select></div>
+          <div class="field"><label for="time">Jam belajar</label><select id="time"><option>16.00</option><option>05.00</option><option>09.00</option><option>20.00</option></select></div>
+          <div class="field"><label for="infaq">Infak bulanan</label><select id="infaq"><option value="100000">Rp100.000</option><option value="150000">Rp150.000</option></select></div>
+        </div>
+        <div class="check"><input id="consent" type="checkbox"><label for="consent">Saya menyetujui pengiriman <strong>data dummy</strong> untuk pengujian sistem administrasi MQC.</label></div>
+        <button id="send" type="submit" disabled>Kirim Satu Pendaftaran Uji</button>
+      </form>
+      <div id="result" class="status" role="status" aria-live="polite">Belum ada pengiriman.</div>
+    </div>
+  </main>
+  <p class="muted">Setelah menerima kode pendaftaran, periksa CMS Admin → Pendaftaran MQC. Setelah berhasil, cabut akses tes dengan mengganti nama <code>mqc-test-key.sha256</code> menjadi <code>mqc-test-key.sha256.disabled</code>.</p>
+</div>
+<script>
+(() => {
+  'use strict';
+  const API = 'https://api.hidayahindonesia.id/mqc-register.php';
+  const byId = (id) => document.getElementById(id);
+  const secret = byId('secret');
+  const status = byId('status');
+  const check = byId('check');
+  const reveal = byId('reveal');
+  const testForm = byId('testForm');
+  const form = byId('registration');
+  const send = byId('send');
+  const result = byId('result');
+  let authorized = false;
+  let sending = false;
+  let completed = false;
+
+  const setStatus = (element, message, kind = '') => {
+    element.className = 'status' + (kind ? ' ' + kind : '');
+    element.textContent = message;
+  };
+  const allowedHost = location.protocol === 'https:' && location.hostname.endsWith('.vercel.app');
+  if (!allowedHost) {
+    check.disabled = true;
+    setStatus(status, 'Halaman pengujian hanya dapat digunakan pada Vercel Preview HTTPS. Jangan jalankan pada domain produksi.', 'err');
+  }
+  const isKey = () => /^[a-f0-9]{64}$/.test(secret.value.trim());
+  const clean = () => {authorized = false; testForm.classList.add('hidden'); send.disabled = true;};
+  secret.addEventListener('input', clean);
+  reveal.addEventListener('click', () => {secret.type = secret.type === 'password' ? 'text' : 'password';});
+  byId('consent').addEventListener('change', () => {
+    send.disabled = !authorized || !byId('consent').checked || sending || completed;
+  });
+
+  check.addEventListener('click', async () => {
+    clean();
+    if (!allowedHost) return;
+    if (!isKey()) {setStatus(status, 'Format kunci tidak sesuai. Masukkan 64 karakter heksadesimal kecil (0–9, a–f).', 'err'); return;}
+    check.disabled = true;
+    setStatus(status, 'Memeriksa akses dengan API Rumahweb...');
+    try {
+      const response = await fetch(API, {
+        method: 'GET',
+        headers: {'X-MQC-Test-Key': secret.value.trim()},
+        cache: 'no-store',
+        credentials: 'omit',
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.ok !== true || payload.database !== 'ready' || payload.test_mode !== true || payload.registration_open !== true) {
+        setStatus(status, 'Akses uji BELUM aktif. Periksa kecocokan Origin Vercel Preview pada PHP, hash kunci, dan izin CORS. Status HTTP: ' + response.status, 'err');
+        return;
+      }
+      authorized = true;
+      testForm.classList.remove('hidden');
+      send.disabled = !byId('consent').checked || completed;
+      setStatus(status, 'Akses uji berhasil. Database ready, test_mode=true. Pendaftaran publik tetap ditutup (akses uji hanya memakai kunci privat).', 'ok');
+    } catch (_) {
+      setStatus(status, 'Tidak dapat menghubungi API. Kemungkinan Origin/CORS tidak cocok atau koneksi sedang bermasalah. Jangan mengubah database.', 'err');
+    } finally {check.disabled = false;}
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!authorized || sending || completed || !byId('consent').checked || !isKey()) return;
+    if (!window.confirm('Yakin kirim SATU pendaftaran dummy TEST WEB MQC ke MySQL Rumahweb?')) return;
+    sending = true;
+    send.disabled = true;
+    setStatus(result, 'Mengirim satu data dummy ke API Rumahweb...');
+    try {
+      const response = await fetch(API, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-MQC-Test-Key': secret.value.trim()},
+        credentials: 'omit',
+        cache: 'no-store',
+        body: JSON.stringify({
+          fullName: byId('name').value,
+          whatsapp: byId('phone').value,
+          gender: byId('gender').value,
+          classType: byId('classType').value,
+          level: byId('level').value,
+          mode: byId('mode').value,
+          dayPreference: byId('day').value,
+          timePreference: byId('time').value,
+          infaqAmount: Number(byId('infaq').value),
+          consent: true,
+          website: ''
+        })
+      });
+      const payload = await response.json();
+      if (response.status === 201 && payload.ok === true && typeof payload.data?.registrationCode === 'string') {
+        completed = true;
+        const code = payload.data.registrationCode;
+        setStatus(result, 'BERHASIL! HTTP 201\nKode pendaftaran: ' + code + '\nStatus: ' + (payload.data.status || 'Pending') + '\n\nSekarang cek CMS Admin → Pendaftaran MQC → cari TEST WEB MQC. Catat kode untuk pembersihan dummy.', 'ok');
+        secret.value = '';
+      } else {
+        const msg = (typeof payload.error === 'string') ? payload.error : 'Permintaan ditolak oleh server.';
+        setStatus(result, 'BELUM berhasil. HTTP ' + response.status + ': ' + msg, 'err');
+      }
+    } catch (_) {
+      setStatus(result, 'Pengiriman gagal atau respons tidak dapat dibaca. Periksa apakah data sudah masuk CMS sebelum mencoba ulang.', 'err');
+    } finally {
+      sending = false;
+      send.disabled = completed || !authorized || !byId('consent').checked;
+    }
+  });
+})();
+</script>
+</body>
+</html>
