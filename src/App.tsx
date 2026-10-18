@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { initialProfile, initialUnits } from './data/initialData';
+import { initialProfile } from './data/initialData';
 import type { FoundationProfile, UnitDakwah, Article, Activity, Testimonial } from './types';
 import { publicCms } from './services/cmsApi';
 import { Navbar } from './components/Navbar';
@@ -13,15 +13,51 @@ import { TestimonialsSection } from './components/TestimonialsSection';
 import { DonationBanner } from './components/DonationBanner';
 import { Footer } from './components/Footer';
 
+type ProfileStatus = 'loading' | 'available' | 'unavailable';
+
 /**
- * Frontend only reads PUBLIC CMS endpoints. Editing takes place in the
- * authenticated Rumahweb dashboard instead of the legacy localStorage editor.
- * Existing layouts and CSS classes are preserved.
+ * Semua informasi publik berasal dari API CMS Rumahweb.
+ * Jika API gagal saat pembukaan halaman, jangan menampilkan identitas/dokumen contoh.
+ * Jika API gagal saat refresh berkala, pertahankan data CMS terakhir yang valid.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('home');
-  const [profile, setProfile] = useState<FoundationProfile>(initialProfile);
-  const [units, setUnits] = useState<UnitDakwah[]>(initialUnits);
+
+const validTabs = [
+  'home', 'profile', 'units', 'mqc',
+  'articles-activities', 'testimonials'
+];
+
+const getTabFromUrl = (): string => {
+  const tab = window.location.hash.slice(1);
+  return validTabs.includes(tab) ? tab : 'home';
+};
+
+const [activeTab, setActiveTabState] = useState<string>(getTabFromUrl);
+
+const setActiveTab = (tab: string) => {
+  setActiveTabState(tab);
+  const hash = tab === 'home' ? '' : `#${tab}`;
+  const nextUrl = `${window.location.pathname}${window.location.search}${hash}`;
+
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
+    window.history.pushState(null, '', nextUrl);
+  }
+};
+
+useEffect(() => {
+  const syncTab = () => setActiveTabState(getTabFromUrl());
+  window.addEventListener('popstate', syncTab);
+  window.addEventListener('hashchange', syncTab);
+
+  return () => {
+    window.removeEventListener('popstate', syncTab);
+    window.removeEventListener('hashchange', syncTab);
+  };
+}, []);
+  const [profile, setProfile] = useState<FoundationProfile | null>(null);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>('loading');
+  const [hasCmsWarning, setHasCmsWarning] = useState(false);
+  const [units, setUnits] = useState<UnitDakwah[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -31,47 +67,55 @@ export default function App() {
     let disposed = false;
 
     const refresh = async () => {
-      const [nextProfile, nextUnits, nextArticles, nextActivities, nextTestimonials] =
-        await Promise.allSettled([
-          publicCms.profile(controller.signal),
-          publicCms.units(controller.signal),
-          publicCms.articles(controller.signal),
-          publicCms.activities(controller.signal),
-          publicCms.testimonials(controller.signal),
-        ]);
-      if (disposed) return;
+      const outcomes = await Promise.allSettled([
+        publicCms.profile(controller.signal),
+        publicCms.units(controller.signal),
+        publicCms.articles(controller.signal),
+        publicCms.activities(controller.signal),
+        publicCms.testimonials(controller.signal),
+      ] as const);
+
+      if (disposed || controller.signal.aborted) return;
+      const [nextProfile, nextUnits, nextArticles, nextActivities, nextTestimonials] = outcomes;
 
       if (nextProfile.status === 'fulfilled' && nextProfile.value) {
-        // Preserve required frontend fields if the CMS profile has not been filled completely.
+        const incoming = nextProfile.value;
         setProfile({
           ...initialProfile,
-          ...nextProfile.value,
-          contact: { ...initialProfile.contact, ...(nextProfile.value.contact || {}) },
-          mission: Array.isArray(nextProfile.value.mission) ? nextProfile.value.mission : [],
-          legalities: Array.isArray(nextProfile.value.legalities) ? nextProfile.value.legalities : [],
-          management: Array.isArray(nextProfile.value.management) ? nextProfile.value.management : [],
+          ...incoming,
+          contact: { ...initialProfile.contact, ...(incoming.contact || {}) },
+          mission: Array.isArray(incoming.mission) ? incoming.mission : [],
+          legalities: Array.isArray(incoming.legalities) ? incoming.legalities : [],
+          management: Array.isArray(incoming.management) ? incoming.management : [],
         });
+        setProfileStatus('available');
+      } else {
+        // Jangan hilangkan data yang pernah berhasil dibaca sebelumnya.
+        setProfileStatus((previous) => previous === 'available' ? previous : 'unavailable');
       }
-      if (nextUnits.status === 'fulfilled') {
-        // After a successful API response, CMS is the source of truth, including empty lists.
-        setUnits(nextUnits.value);
-      }
+
+      if (nextUnits.status === 'fulfilled') setUnits(nextUnits.value);
       if (nextArticles.status === 'fulfilled') setArticles(nextArticles.value);
       if (nextActivities.status === 'fulfilled') setActivities(nextActivities.value);
       if (nextTestimonials.status === 'fulfilled') setTestimonials(nextTestimonials.value);
 
-      for (const outcome of [nextProfile, nextUnits, nextArticles, nextActivities, nextTestimonials]) {
-        if (outcome.status === 'rejected' && !controller.signal.aborted) {
-          console.warn('CMS sementara tidak dapat dibaca, menggunakan data cadangan:', outcome.reason);
+      const failed = outcomes.some((outcome) => outcome.status === 'rejected') ||
+        (nextProfile.status === 'fulfilled' && !nextProfile.value);
+      setHasCmsWarning(failed);
+
+      for (const outcome of outcomes) {
+        if (outcome.status === 'rejected') {
+          console.warn('Data CMS sementara tidak tersedia:', outcome.reason);
         }
       }
     };
 
     void refresh();
-    // An already-open page refreshes its public content periodically.
+    // Isi konten diperbarui otomatis setiap dua menit selama halaman terlihat.
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, 120000);
+
     return () => {
       disposed = true;
       controller.abort();
@@ -83,15 +127,36 @@ export default function App() {
     window.location.assign('https://api.hidayahindonesia.id/cms-admin.html');
   };
 
+  const displayProfile = profile || initialProfile;
+  const profileUnavailable = (
+    <section role="status" className="mx-auto max-w-4xl px-6 py-16 text-center text-slate-700">
+      <h1 className="text-2xl font-bold text-[#0B192C]">Informasi Profil Hidayah Indonesia</h1>
+      <p className="mt-3">
+        {profileStatus === 'loading'
+          ? 'Sedang mengambil data resmi yayasan dari CMS Rumahweb...'
+          : 'Informasi profil sementara tidak tersedia. Silakan muat ulang halaman beberapa saat lagi.'}
+      </p>
+    </section>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} profile={profile} />
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} profile={displayProfile} />
 
       <main className="flex-grow">
+        {(hasCmsWarning || profileStatus === 'unavailable') && (
+          <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+            Sebagian data CMS sementara tidak dapat diperbarui. Data yang sebelumnya berhasil dimuat tetap ditampilkan.
+          </div>
+        )}
         {activeTab === 'home' && (
           <>
-            <Hero setActiveTab={setActiveTab} profile={profile} />
-            <ProfileSection profile={profile} />
+            {profile ? (
+              <>
+                <Hero setActiveTab={setActiveTab} profile={profile} />
+                <ProfileSection profile={profile} />
+              </>
+            ) : profileUnavailable}
             <UnitsSection units={units} setActiveTab={setActiveTab} />
             <DonationBanner />
             <ArticlesSection articles={articles} />
@@ -99,13 +164,9 @@ export default function App() {
             <TestimonialsSection testimonials={testimonials} />
           </>
         )}
-        {activeTab === 'profile' && <ProfileSection profile={profile} />}
+        {activeTab === 'profile' && (profile ? <ProfileSection profile={profile} /> : profileUnavailable)}
         {activeTab === 'units' && <UnitsSection units={units} setActiveTab={setActiveTab} />}
-        {activeTab === 'mqc' && (
-          // Form pendaftaran lama belum terhubung ke backend; pengiriman lokal dinonaktifkan
-          // oleh patch MQCPage yang WAJIB dipasang bersama file ini.
-          <MQCPage onAddRegistration={() => {}} />
-        )}
+        {activeTab === 'mqc' && <MQCPage onAddRegistration={() => {}} />}
         {activeTab === 'articles-activities' && (
           <>
             <ArticlesSection articles={articles} />
@@ -115,7 +176,7 @@ export default function App() {
         {activeTab === 'testimonials' && <TestimonialsSection testimonials={testimonials} />}
       </main>
 
-      <Footer setActiveTab={setActiveTab} onOpenAdmin={openCmsAdmin} profile={profile} />
+      <Footer setActiveTab={setActiveTab} onOpenAdmin={openCmsAdmin} profile={displayProfile} />
     </div>
   );
 }

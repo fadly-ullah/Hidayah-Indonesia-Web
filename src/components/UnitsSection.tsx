@@ -29,10 +29,13 @@ export const UnitsSection: React.FC<UnitsSectionProps> = ({ units, setActiveTab 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-16">  
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-            6 Unit Dakwah Hidayah Indonesia
+            {units.length > 0
+            ? `${units.length} Unit Dakwah Hidayah Indonesia`
+            : 'Unit Dakwah Hidayah Indonesia'}
           </h2>
+          
           <p className="mt-4 text-base sm:text-lg text-slate-300">
             Pilar pengabdian dan pelayanan umat yang dikelola secara profesional di bidang pendidikan, tahfizh, sosial, dakwah media, majelis zikir, dan ekonomi syariah.
           </p>
