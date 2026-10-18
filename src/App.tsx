@@ -21,7 +21,39 @@ type ProfileStatus = 'loading' | 'available' | 'unavailable';
  * Jika API gagal saat refresh berkala, pertahankan data CMS terakhir yang valid.
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('home');
+
+const validTabs = [
+  'home', 'profile', 'units', 'mqc',
+  'articles-activities', 'testimonials'
+];
+
+const getTabFromUrl = (): string => {
+  const tab = window.location.hash.slice(1);
+  return validTabs.includes(tab) ? tab : 'home';
+};
+
+const [activeTab, setActiveTabState] = useState<string>(getTabFromUrl);
+
+const setActiveTab = (tab: string) => {
+  setActiveTabState(tab);
+  const hash = tab === 'home' ? '' : `#${tab}`;
+  const nextUrl = `${window.location.pathname}${window.location.search}${hash}`;
+
+  if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
+    window.history.pushState(null, '', nextUrl);
+  }
+};
+
+useEffect(() => {
+  const syncTab = () => setActiveTabState(getTabFromUrl());
+  window.addEventListener('popstate', syncTab);
+  window.addEventListener('hashchange', syncTab);
+
+  return () => {
+    window.removeEventListener('popstate', syncTab);
+    window.removeEventListener('hashchange', syncTab);
+  };
+}, []);
   const [profile, setProfile] = useState<FoundationProfile | null>(null);
   const [profileStatus, setProfileStatus] = useState<ProfileStatus>('loading');
   const [hasCmsWarning, setHasCmsWarning] = useState(false);
