@@ -61,7 +61,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, onOpenAdmin, profi
               </li>
               <li>
                 <button onClick={() => { setActiveTab('units'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-blue-400 transition-colors">
-                  4 Unit Dakwah
+                  Unit Dakwah
                 </button>
               </li>
               <li>
