@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { MQCRegistration } from '../types';
-import type { MQCRegistrationInput } from '../services/mqcRegistration';
+import type { MQCRegistrationInput, MQCTariffCode } from '../services/mqcRegistration';
 import {
   getMQCRegistrationStatus,
   submitMQCRegistration,
@@ -17,7 +17,40 @@ interface MQCPageProps {
   ) => void;
 }
 
-type RegistrationFields = Omit<MQCRegistrationInput, 'consent' | 'website'>;
+type RegistrationFields = Pick<MQCRegistrationInput,
+  'fullName' | 'whatsapp' | 'gender' | 'classType' | 'level' |
+  'mode' | 'dayPreference' | 'timePreference'> & {
+    mqcBranch: 'bekasi' | 'depok';
+    billingPlan: 'monthly' | 'per_session';
+    regularAmount: 100000 | 150000;
+  };
+
+type TariffSelection = {
+  code: MQCTariffCode;
+  amount: number;
+  unit: 'bulan' | 'pertemuan';
+};
+
+const getTariffSelection = (values: RegistrationFields): TariffSelection => {
+  if (values.classType === 'Kelas Reguler') {
+    return {
+      code: values.regularAmount === 150000 ? 'regular_150_month' : 'regular_100_month',
+      amount: values.regularAmount,
+      unit: 'bulan',
+    };
+  }
+  const offline = values.mode === 'Offline';
+  const monthly = values.billingPlan === 'monthly';
+  return {
+    code: offline
+      ? (monthly ? 'private_offline_month' : 'private_offline_session')
+      : (monthly ? 'private_online_month' : 'private_online_session'),
+    amount: offline ? (monthly ? 600000 : 85000) : (monthly ? 550000 : 75000),
+    unit: monthly ? 'bulan' : 'pertemuan',
+  };
+};
+
+const formatRupiah = (amount: number) => `Rp${amount.toLocaleString('id-ID')}`;
 
 const INITIAL_FORM: RegistrationFields = {
   fullName: '',
@@ -25,10 +58,12 @@ const INITIAL_FORM: RegistrationFields = {
   gender: 'Ikhwan',
   classType: 'Kelas Reguler',
   level: 'Level 1 (Pemula)',
-  mode: 'Offline (Jatiasih, Bekasi)',
+  mode: 'Offline',
+  mqcBranch: 'bekasi',
+  billingPlan: 'monthly',
+  regularAmount: 100000,
   dayPreference: 'Senin & Rabu',
   timePreference: '16.00',
-  infaqAmount: 100000,
 };
 
 const inputClass =
@@ -46,6 +81,7 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [lastTicket, setLastTicket] = useState<string | null>(null);
+  const selectedTariff = getTariffSelection(formData);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,10 +115,21 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
     }
     setIsSubmitting(true);
     try {
+      const tariff = getTariffSelection(formData);
       const receipt = await submitMQCRegistration({
-        ...formData,
+        formVersion: 2,
         fullName: formData.fullName.trim(),
         whatsapp: formData.whatsapp.trim(),
+        gender: formData.gender,
+        classType: formData.classType,
+        level: formData.level,
+        mode: formData.mode,
+        mqcBranch: formData.mode === 'Offline' ? formData.mqcBranch : null,
+        billingPlan: formData.classType === 'Kelas Reguler' ? 'monthly' : formData.billingPlan,
+        tariffCode: tariff.code,
+        infaqAmount: tariff.amount,
+        dayPreference: formData.dayPreference,
+        timePreference: formData.timePreference,
         consent: true,
         website: '',
       });
@@ -150,7 +197,15 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                     <MapPin className="w-4 h-4 text-red-500 mr-2" /> Offline (Tatap Muka)
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    Hidayah Indonesia, Jl. Raya Jatimekar, Rt.001/Rw.011 No.339, RT.003/RW.011, Jatimekar, Kec. Jatiasih, Kota Bks, Jawa Barat 17422
+                    MQC Bekasi: Hidayah Indonesia, Jl. Raya Jatimekar, Rt.001/Rw.011 No.339, RT.003/RW.011, Jatimekar, Kec. Jatiasih, Kota Bks, Jawa Barat 17422
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <h3 className="font-bold text-slate-900 flex items-center mb-1">
+                    <MapPin className="w-4 h-4 text-red-500 mr-2" /> MQC Depok (Offline)
+                  </h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Tersedia pilihan kelas tatap muka di MQC Depok. Alamat detail dan jadwal akan dikonfirmasi admin.
                   </p>
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -246,7 +301,7 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                 <p className="text-xs text-blue-300">Madrasah Qur'an Center Hidayah Indonesia</p>
               </div>
               <div className="bg-amber-500/20 border border-amber-500/40 p-3.5 rounded-2xl mb-6 text-xs text-amber-200">
-                ⭐ <strong>Spesial Pendaftar Pertama:</strong> Free Buku Tajwid Ringkas + Free Biaya Pendaftaran (Rp 0 dari normal Rp 50.000). Cukup bayar infaq bulanan pilihan Anda! <span className="block mt-1">Ketersediaan promo dikonfirmasi admin.</span>
+                ⭐ <strong>Spesial Pendaftar Pertama:</strong> Free Buku Tajwid Ringkas + Free Biaya Pendaftaran (Rp 0 dari normal Rp 50.000). Cukup bayar infak sesuai paket pilihan Anda! <span className="block mt-1">Ketersediaan promo dikonfirmasi admin.</span>
               </div>
 
               {submitted ? (
@@ -284,7 +339,14 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                     <div>
                       <label htmlFor="mqc-classType" className={labelClass}>Jenis Kelas</label>
                       <select id="mqc-classType" value={formData.classType}
-                        onChange={(e) => setFormData({ ...formData, classType: e.target.value as RegistrationFields['classType'] })} className={selectClass}>
+                        onChange={(e) => {
+                          const classType = e.target.value as RegistrationFields['classType'];
+                          setFormData((previous) => ({
+                            ...previous,
+                            classType,
+                            billingPlan: classType === 'Kelas Reguler' ? 'monthly' : 'per_session',
+                          }));
+                        }} className={selectClass}>
                         <option value="Kelas Reguler">Kelas Reguler</option><option value="Kelas Privat">Kelas Privat</option>
                       </select>
                     </div>
@@ -303,11 +365,33 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                       <label htmlFor="mqc-mode" className={labelClass}>Metode Belajar</label>
                       <select id="mqc-mode" value={formData.mode}
                         onChange={(e) => setFormData({ ...formData, mode: e.target.value as RegistrationFields['mode'] })} className={selectClass}>
-                        <option value="Offline (Jatiasih, Bekasi)">Offline (Jatiasih)</option>
-                        <option value="Online (Zoom/Meet/WA)">Online (Zoom/Meet)</option>
+                        <option value="Offline">Offline (Tatap Muka)</option>
+                        <option value="Online">Online (Zoom/Meet)</option>
                       </select>
                     </div>
                   </div>
+                  {formData.mode === 'Offline' && (
+                    <div>
+                      <label htmlFor="mqc-branch" className={labelClass}>Lokasi MQC *</label>
+                      <select id="mqc-branch" required value={formData.mqcBranch}
+                        onChange={(e) => setFormData({ ...formData, mqcBranch: e.target.value as RegistrationFields['mqcBranch'] })}
+                        className={selectClass}>
+                        <option value="bekasi">MQC Bekasi</option>
+                        <option value="depok">MQC Depok</option>
+                      </select>
+                    </div>
+                  )}
+                  {formData.classType === 'Kelas Privat' && (
+                    <div>
+                      <label htmlFor="mqc-billing" className={labelClass}>Paket Privat *</label>
+                      <select id="mqc-billing" value={formData.billingPlan}
+                        onChange={(e) => setFormData({ ...formData, billingPlan: e.target.value as RegistrationFields['billingPlan'] })}
+                        className={selectClass}>
+                        <option value="per_session">Per Pertemuan</option>
+                        <option value="monthly">Paket Spesial Bulanan</option>
+                      </select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor="mqc-day" className={labelClass}>Pilihan Hari</label>
@@ -331,13 +415,29 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                       </select>
                     </div>
                   </div>
-                  <div>
-                    <label htmlFor="mqc-infaq" className={labelClass}>Pilihan Infaq Bulanan</label>
-                    <select id="mqc-infaq" value={formData.infaqAmount}
-                      onChange={(e) => setFormData({ ...formData, infaqAmount: Number(e.target.value) })} className={selectClass}>
-                      <option value={100000}>Rp. 100.000 / Bulan</option>
-                      <option value={150000}>Rp. 150.000 / Bulan (Dukungan Operasional)</option>
-                    </select>
+                  {formData.classType === 'Kelas Reguler' && (
+                    <div>
+                      <label htmlFor="mqc-infaq" className={labelClass}>Pilihan Infak Bulanan</label>
+                      <select id="mqc-infaq" value={formData.regularAmount}
+                        onChange={(e) => setFormData({ ...formData, regularAmount: Number(e.target.value) as 100000 | 150000 })}
+                        className={selectClass}>
+                        <option value={100000}>Rp100.000 / Bulan</option>
+                        <option value={150000}>Rp150.000 / Bulan (Dukungan Operasional)</option>
+                      </select>
+                    </div>
+                  )}
+                  <div role="status" aria-live="polite" className="rounded-xl border border-blue-700/60 bg-blue-950/70 p-4 space-y-1">
+                    <p className="text-xs text-blue-200">Ringkasan biaya {formData.classType === 'Kelas Privat' ? 'Privat' : 'Reguler'}</p>
+                    <p className="text-2xl font-extrabold text-white">{formatRupiah(selectedTariff.amount)} <span className="text-sm font-medium text-blue-200">/ {selectedTariff.unit}</span></p>
+                    <p className="text-xs text-slate-300">
+                      {formData.mode === 'Offline'
+                        ? `Offline • MQC ${formData.mqcBranch === 'bekasi' ? 'Bekasi' : 'Depok'}`
+                        : 'Online'}
+                      {' • '}{formData.classType === 'Kelas Privat'
+                        ? (formData.billingPlan === 'monthly' ? 'Paket spesial bulanan' : 'Per pertemuan')
+                        : 'Reguler bulanan'}
+                    </p>
+                    <p className="text-[11px] text-slate-400">Nominal akan diverifikasi kembali oleh server saat pendaftaran.</p>
                   </div>
 
                   <div aria-live="polite" className="text-xs">
@@ -357,7 +457,7 @@ export const MQCPage: React.FC<MQCPageProps> = () => {
                     <span>{isSubmitting ? 'Mengirim Pendaftaran...' : 'Kirim Pendaftaran Sekarang'}</span>
                   </button>
                   <p className="text-[11px] text-slate-400 text-center mt-2">
-                    Pilihan jadwal dan besaran infak akan dikonfirmasi oleh admin MQC.
+                    Jadwal dan pilihan kelas akan dikonfirmasi oleh admin MQC. Tarif mengikuti pilihan paket yang ditampilkan.
                   </p>
                 </form>
               )}

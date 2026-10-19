@@ -5,13 +5,26 @@
  */
 const ENDPOINT = 'https://api.hidayahindonesia.id/mqc-register.php';
 
+export type MQCTariffCode =
+  | 'regular_100_month'
+  | 'regular_150_month'
+  | 'private_online_session'
+  | 'private_online_month'
+  | 'private_offline_session'
+  | 'private_offline_month';
+
+/** Formulir MQC V2. Nominal divalidasi ulang oleh API PHP Rumahweb. */
 export interface MQCRegistrationInput {
+  formVersion: 2;
   fullName: string;
   whatsapp: string;
   gender: 'Ikhwan' | 'Akhwat';
   classType: 'Kelas Reguler' | 'Kelas Privat';
   level: 'Level 1 (Pemula)' | 'Level 2 (Tahsin)' | 'Level 3 (Tahfizh)';
-  mode: 'Online (Zoom/Meet/WA)' | 'Offline (Jatiasih, Bekasi)';
+  mode: 'Online' | 'Offline';
+  mqcBranch: 'bekasi' | 'depok' | null;
+  billingPlan: 'monthly' | 'per_session';
+  tariffCode: MQCTariffCode;
   dayPreference: string;
   timePreference: string;
   infaqAmount: number;
